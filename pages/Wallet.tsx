@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { CreditCard, Send, Download, Upload, Plus, Minus } from 'lucide-react';
+import { CreditCard, Send, Download, Upload, Plus, Minus, Users } from 'lucide-react';
+import { UserLevel } from '../types';
 
 const WalletPage: React.FC = () => {
-  const { user, deposit, withdraw, transfer } = useAuth();
+  const { user, deposit, withdraw, transfer, users, getUserLevel, distributePoints } = useAuth();
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<'deposit' | 'withdraw' | 'transfer'>('deposit');
   const [isLoading, setIsLoading] = useState(false);
@@ -16,6 +17,10 @@ const WalletPage: React.FC = () => {
   const [accountNumber, setAccountNumber] = useState<string>('');
   const [accountHolder, setAccountHolder] = useState<string>('');
   const [message, setMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
+  
+  // 관리자 전용: 등급별 일괄 송금
+  const [bulkTarget, setBulkTarget] = useState<'individual' | UserLevel>('individual');
+  const isAdmin = user?.username === 'admin';
 
   const handleAction = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,13 +65,26 @@ const WalletPage: React.FC = () => {
           setMessage({ text: t('errorBalance'), type: 'error' });
         }
       } else if (activeTab === 'transfer') {
-        const result = await transfer(targetUser, numAmount);
-        if (result.success) {
-          setMessage({ text: t('transferSuccess'), type: 'success' });
-          setAmount('');
-          setTargetUser('');
+        // 관리자: 등급별 일괄 송금
+        if (isAdmin && bulkTarget !== 'individual') {
+          const result = await distributePoints(numAmount, bulkTarget as UserLevel, 'SPECIAL');
+          if (result.success) {
+            setMessage({ text: `${result.count}명에게 ${numAmount.toLocaleString()}P 송금 완료!`, type: 'success' });
+            setAmount('');
+            setBulkTarget('individual');
+          } else {
+            setMessage({ text: '송금 실패', type: 'error' });
+          }
         } else {
-          setMessage({ text: t(result.message), type: 'error' });
+          // 개인 송금
+          const result = await transfer(targetUser, numAmount);
+          if (result.success) {
+            setMessage({ text: t('transferSuccess'), type: 'success' });
+            setAmount('');
+            setTargetUser('');
+          } else {
+            setMessage({ text: t(result.message), type: 'error' });
+          }
         }
       }
     } catch (e) {
@@ -148,19 +166,52 @@ const WalletPage: React.FC = () => {
             </h3>
 
             {activeTab === 'transfer' && (
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">{t('recipientId')}</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={targetUser}
-                    onChange={(e) => setTargetUser(e.target.value)}
-                    className="w-full pl-4 pr-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                    placeholder={t('placeholderId')}
-                    required
-                    disabled={isLoading}
-                  />
-                </div>
+              <div className="space-y-4">
+                {/* 관리자 전용: 등급 선택 */}
+                {isAdmin && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      <Users size={16} className="inline mr-1" />
+                      송금 대상
+                    </label>
+                    <select
+                      value={bulkTarget}
+                      onChange={(e) => setBulkTarget(e.target.value as 'individual' | UserLevel)}
+                      className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all bg-white"
+                      disabled={isLoading}
+                    >
+                      <option value="individual">👤 개인 송금 (아이디 입력)</option>
+                      <option value="MEMBER">🔵 일반회원 전체</option>
+                      <option value="VIP">🟣 VIP 전체</option>
+                      <option value="VVIP">🟡 VVIP 전체</option>
+                      <option value="DIRECTOR">🔴 이사 전체</option>
+                    </select>
+                    {bulkTarget !== 'individual' && (
+                      <p className="text-sm text-blue-600 mt-2 font-medium">
+                        ✅ {bulkTarget === 'MEMBER' ? '일반회원' : bulkTarget === 'VIP' ? 'VIP' : bulkTarget === 'VVIP' ? 'VVIP' : '이사'} 
+                        {' '}등급 회원 {users.filter(u => u.username !== 'admin' && getUserLevel(u) === bulkTarget).length}명에게 일괄 송금됩니다
+                      </p>
+                    )}
+                  </div>
+                )}
+                
+                {/* 개인 송금일 때만 아이디 입력 */}
+                {(bulkTarget === 'individual' || !isAdmin) && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">{t('recipientId')}</label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={targetUser}
+                        onChange={(e) => setTargetUser(e.target.value)}
+                        className="w-full pl-4 pr-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                        placeholder={t('placeholderId')}
+                        required
+                        disabled={isLoading}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -213,7 +264,7 @@ const WalletPage: React.FC = () => {
                 <div className="flex items-center space-x-2">
                    <button 
                     type="button" 
-                    onClick={() => adjustAmount(-10000)}
+                    onClick={() => adjustAmount(activeTab === 'withdraw' ? -10000 : -1000)}
                     disabled={isLoading}
                     className="p-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-colors disabled:opacity-50"
                    >
@@ -229,13 +280,13 @@ const WalletPage: React.FC = () => {
                         placeholder="0"
                         required
                         min="1"
-                        step="10000"
+                        step={activeTab === 'withdraw' ? "10000" : "1"}
                         disabled={isLoading}
                       />
                    </div>
                    <button 
                     type="button" 
-                    onClick={() => adjustAmount(10000)}
+                    onClick={() => adjustAmount(activeTab === 'withdraw' ? 10000 : 1000)}
                     disabled={isLoading}
                     className="p-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-colors disabled:opacity-50"
                    >
@@ -259,8 +310,8 @@ const WalletPage: React.FC = () => {
               )}
               
               {/* Helper Buttons */}
-              <div className="flex justify-end space-x-2 mt-2">
-                {[10000, 50000, 100000, 500000].map(val => (
+              <div className="flex justify-end space-x-2 mt-2 flex-wrap gap-1">
+                {(activeTab === 'transfer' ? [100, 500, 1000, 5000, 10000, 50000] : [10000, 50000, 100000, 500000]).map(val => (
                   <button
                     key={val}
                     type="button"
