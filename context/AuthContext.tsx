@@ -384,10 +384,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     
     const db = supabase;
     
-    // 대상 회원 필터링
-    const targetUsers = users.filter(u => {
+    // 관리자 최신 잔액 가져오기
+    const { data: adminData } = await db.from('users').select('*').eq('id', user.id).single();
+    if (!adminData) return { success: false, count: 0, message: '관리자 정보 조회 실패' };
+    const adminBalance = adminData.balance;
+    
+    // 대상 회원 필터링 (최신 데이터)
+    const { data: allUsersData } = await db.from('users').select('*');
+    if (!allUsersData) return { success: false, count: 0, message: '회원 정보 조회 실패' };
+    
+    const allUsers = allUsersData.map(mapUserFromDB);
+    const targetUsers = allUsers.filter(u => {
       if (u.username === 'admin') return false;
-      return getUserLevel(u) === targetLevel;
+      // 등급 계산
+      const refCount = allUsers.filter(x => x.referrerId === u.id).length;
+      let level: UserLevel = 'MEMBER';
+      if (u.specialGrade === 'DIRECTOR') level = 'DIRECTOR';
+      else if (refCount >= 10) level = 'DISTRIBUTOR';
+      else if (refCount >= 5) level = 'VVIP';
+      else if (refCount >= 3) level = 'VIP';
+      return level === targetLevel;
     });
     
     if (targetUsers.length === 0) {
@@ -397,19 +413,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const totalAmount = amount * targetUsers.length;
     
     // 관리자 잔액 확인
-    if (user.balance < totalAmount) {
-      return { success: false, count: 0, message: `잔액 부족 (필요: ${totalAmount.toLocaleString()}P)` };
+    if (adminBalance < totalAmount) {
+      return { success: false, count: 0, message: `잔액 부족 (필요: ${totalAmount.toLocaleString()}P, 보유: ${adminBalance.toLocaleString()}P)` };
     }
     
     // 1. 관리자 잔액 차감
-    const { error: adminErr } = await db.from('users').update({ balance: user.balance - totalAmount }).eq('id', user.id);
+    const { error: adminErr } = await db.from('users').update({ balance: adminBalance - totalAmount }).eq('id', user.id);
     if (adminErr) {
+      console.error('Admin balance update error:', adminErr);
       return { success: false, count: 0, message: '관리자 잔액 차감 실패' };
     }
     
     // 2. 각 회원에게 송금 및 거래내역 기록
     let count = 0;
-    const updates = targetUsers.map(async (u) => {
+    for (const u of targetUsers) {
       count++;
       // 회원 잔액 증가
       await db.from('users').update({ balance: u.balance + amount }).eq('id', u.id);
@@ -423,9 +440,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         related_user_id: u.id,
         related_user_name: 'admin'
       });
-    });
-    
-    await Promise.all(updates);
+    }
     
     // 3. 관리자 거래내역 (보냄)
     await db.from('transactions').insert({
@@ -436,6 +451,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       related_user_id: user.id,
       related_user_name: `${targetLevel} (${count}명)`
     });
+    
+    // 데이터 새로고침
+    await fetchData();
     
     return { success: true, count, message: '송금 완료' };
   };
