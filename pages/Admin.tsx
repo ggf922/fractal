@@ -1,7 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { Shield, Search, Edit2, Save, X, Users, Send, CheckCircle, Award, CheckSquare, Square, Trash2, Clock, Check, Ban, Download, Upload, FileJson, AlertTriangle } from 'lucide-react';
+import { Shield, Search, Edit2, Save, X, Users, Send, CheckCircle, Award, CheckSquare, Square, Trash2, Clock, Check, Ban, Download, Upload, FileJson, AlertTriangle, ShoppingBag, Link } from 'lucide-react';
 import { UserLevel, BonusType, Country } from '../types';
 
 const Admin: React.FC = () => {
@@ -14,6 +14,22 @@ const Admin: React.FC = () => {
   const [message, setMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // 쇼핑몰 URL 상태
+  const [shopUrl, setShopUrl] = useState<string>('');
+  const [shopUrlInput, setShopUrlInput] = useState<string>('');
+
+  useEffect(() => {
+    const savedUrl = localStorage.getItem('shopUrl') || '';
+    setShopUrl(savedUrl);
+    setShopUrlInput(savedUrl);
+  }, []);
+
+  const handleSaveShopUrl = () => {
+    localStorage.setItem('shopUrl', shopUrlInput);
+    setShopUrl(shopUrlInput);
+    setMessage({ text: '쇼핑몰 URL이 저장되었습니다.', type: 'success' });
+  };
 
   // Bulk Send States
   const [bulkAmount, setBulkAmount] = useState<string>('');
@@ -315,6 +331,44 @@ const Admin: React.FC = () => {
                 </div>
             </div>
         </div>
+      </div>
+
+      {/* 쇼핑몰 URL 설정 */}
+      <div className="bg-gradient-to-r from-emerald-600 to-teal-600 rounded-2xl shadow-lg p-6 text-white">
+        <div className="flex items-center space-x-2 mb-4">
+          <div className="bg-white/20 p-2 rounded-lg">
+            <ShoppingBag size={24} />
+          </div>
+          <h3 className="text-xl font-bold">쇼핑몰 URL 설정</h3>
+        </div>
+        <p className="text-emerald-100 text-sm mb-4">
+          대시보드의 '쇼핑몰' 카드를 클릭하면 이동할 URL을 설정합니다.
+        </p>
+        <div className="flex flex-col md:flex-row gap-3">
+          <div className="flex-1 relative">
+            <Link size={18} className="absolute left-4 top-3.5 text-emerald-300" />
+            <input
+              type="url"
+              value={shopUrlInput}
+              onChange={(e) => setShopUrlInput(e.target.value)}
+              placeholder="https://your-shop.com"
+              className="w-full bg-white/10 border border-white/20 rounded-xl pl-12 pr-4 py-3 text-white placeholder-emerald-200 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-transparent transition-all"
+            />
+          </div>
+          <button
+            onClick={handleSaveShopUrl}
+            className="bg-white text-emerald-700 font-bold px-6 py-3 rounded-xl hover:bg-emerald-50 transition-all flex items-center justify-center space-x-2"
+          >
+            <Save size={18} />
+            <span>저장</span>
+          </button>
+        </div>
+        {shopUrl && (
+          <div className="mt-3 flex items-center space-x-2 text-emerald-100 text-sm">
+            <CheckCircle size={16} />
+            <span>현재 설정: {shopUrl}</span>
+          </div>
+        )}
       </div>
 
       {/* Pending Deposits Section */}

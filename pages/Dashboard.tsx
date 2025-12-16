@@ -1,12 +1,24 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { Users, Wallet, ArrowUpRight, ArrowDownLeft, UserPlus, Award, TrendingUp, Target } from 'lucide-react';
+import { Users, Wallet, ArrowUpRight, ArrowDownLeft, UserPlus, Award, ShoppingBag, Target, ExternalLink } from 'lucide-react';
 import { UserLevel } from '../types';
 
 const Dashboard: React.FC = () => {
   const { user, users, transactions, getUserLevel } = useAuth();
   const { t } = useLanguage();
+  const [shopUrl, setShopUrl] = useState<string>('');
+
+  useEffect(() => {
+    const savedUrl = localStorage.getItem('shopUrl') || '';
+    setShopUrl(savedUrl);
+  }, []);
+
+  const handleShopClick = () => {
+    if (shopUrl) {
+      window.open(shopUrl, '_blank');
+    }
+  };
 
   const getDownlineCount = (userId: string): number => {
     const directReports = users.filter(u => u.referrerId === userId);
@@ -109,15 +121,21 @@ const Dashboard: React.FC = () => {
           <h3 className="text-2xl md:text-3xl font-bold">{downlineCount}</h3>
         </div>
 
-        {/* 네트워크 볼륨 */}
-        <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 p-5 rounded-2xl shadow-lg text-white">
+        {/* 쇼핑몰 */}
+        <div 
+          onClick={handleShopClick}
+          className={`bg-gradient-to-br from-emerald-500 to-emerald-600 p-5 rounded-2xl shadow-lg text-white ${shopUrl ? 'cursor-pointer hover:from-emerald-600 hover:to-emerald-700 transition-all transform hover:scale-105' : ''}`}
+        >
           <div className="flex items-center justify-between mb-3">
-            <p className="text-emerald-100 text-sm font-medium">네트워크 볼륨</p>
+            <p className="text-emerald-100 text-sm font-medium">쇼핑몰</p>
             <div className="bg-white/20 p-2 rounded-xl">
-              <TrendingUp size={20} />
+              <ShoppingBag size={20} />
             </div>
           </div>
-          <h3 className="text-2xl md:text-3xl font-bold">{downlineVolume.toLocaleString()} P</h3>
+          <div className="flex items-center space-x-2">
+            <h3 className="text-xl md:text-2xl font-bold">{shopUrl ? '바로가기' : '준비중'}</h3>
+            {shopUrl && <ExternalLink size={18} />}
+          </div>
         </div>
       </div>
 
