@@ -17,6 +17,8 @@ const Dashboard: React.FC = () => {
   const handleShopClick = () => {
     if (shopUrl) {
       window.open(shopUrl, '_blank');
+    } else {
+      alert('쇼핑몰 URL이 설정되지 않았습니다. 관리자에게 문의하세요.');
     }
   };
 
@@ -124,7 +126,7 @@ const Dashboard: React.FC = () => {
         {/* 쇼핑몰 */}
         <div 
           onClick={handleShopClick}
-          className={`bg-gradient-to-br from-emerald-500 to-emerald-600 p-5 rounded-2xl shadow-lg text-white ${shopUrl ? 'cursor-pointer hover:from-emerald-600 hover:to-emerald-700 transition-all transform hover:scale-105' : ''}`}
+          className="bg-gradient-to-br from-emerald-500 to-emerald-600 p-5 rounded-2xl shadow-lg text-white cursor-pointer hover:from-emerald-600 hover:to-emerald-700 transition-all transform hover:scale-105"
         >
           <div className="flex items-center justify-between mb-3">
             <p className="text-emerald-100 text-sm font-medium">쇼핑몰</p>
@@ -133,8 +135,8 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            <h3 className="text-xl md:text-2xl font-bold">{shopUrl ? '바로가기' : '준비중'}</h3>
-            {shopUrl && <ExternalLink size={18} />}
+            <h3 className="text-xl md:text-2xl font-bold">바로가기</h3>
+            <ExternalLink size={18} />
           </div>
         </div>
       </div>

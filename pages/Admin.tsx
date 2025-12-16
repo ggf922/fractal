@@ -31,6 +31,13 @@ const Admin: React.FC = () => {
     setMessage({ text: '쇼핑몰 URL이 저장되었습니다.', type: 'success' });
   };
 
+  const handleDeleteShopUrl = () => {
+    localStorage.removeItem('shopUrl');
+    setShopUrl('');
+    setShopUrlInput('');
+    setMessage({ text: '쇼핑몰 URL이 삭제되었습니다.', type: 'success' });
+  };
+
   // Bulk Send States
   const [bulkAmount, setBulkAmount] = useState<string>('');
   const [bulkTarget, setBulkTarget] = useState<string>('ALL');
@@ -362,6 +369,15 @@ const Admin: React.FC = () => {
             <Save size={18} />
             <span>저장</span>
           </button>
+          {shopUrl && (
+            <button
+              onClick={handleDeleteShopUrl}
+              className="bg-red-500 text-white font-bold px-6 py-3 rounded-xl hover:bg-red-600 transition-all flex items-center justify-center space-x-2"
+            >
+              <Trash2 size={18} />
+              <span>삭제</span>
+            </button>
+          )}
         </div>
         {shopUrl && (
           <div className="mt-3 flex items-center space-x-2 text-emerald-100 text-sm">
