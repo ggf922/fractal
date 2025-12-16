@@ -176,11 +176,11 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* 최근 거래 내역 */}
+      {/* 최근 거래 내역 - 본인 거래만 표시 */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
         <h3 className="font-bold text-slate-800 mb-4 text-lg">{t('recentTx')}</h3>
         <div className="space-y-3">
-          {transactions.length === 0 ? (
+          {transactions.filter(tx => tx.relatedUserId === user?.id).length === 0 ? (
             <div className="text-center py-8">
               <div className="bg-slate-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
                 <Wallet size={24} className="text-slate-400" />
@@ -188,7 +188,7 @@ const Dashboard: React.FC = () => {
               <p className="text-slate-400">{t('noTx')}</p>
             </div>
           ) : (
-            transactions.slice(0, 6).map(tx => (
+            transactions.filter(tx => tx.relatedUserId === user?.id).slice(0, 6).map(tx => (
               <div key={tx.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
                 <div className="flex items-center space-x-3">
                   <div className={`p-2.5 rounded-xl ${
