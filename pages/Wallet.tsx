@@ -5,7 +5,7 @@ import { CreditCard, Send, Download, Upload, Plus, Minus, Users } from 'lucide-r
 import { UserLevel } from '../types';
 
 const WalletPage: React.FC = () => {
-  const { user, deposit, withdraw, transfer, users, getUserLevel, distributePoints } = useAuth();
+  const { user, deposit, withdraw, transfer, users, getUserLevel, bulkTransfer } = useAuth();
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<'deposit' | 'withdraw' | 'transfer'>('deposit');
   const [isLoading, setIsLoading] = useState(false);
@@ -67,13 +67,13 @@ const WalletPage: React.FC = () => {
       } else if (activeTab === 'transfer') {
         // 관리자: 등급별 일괄 송금
         if (isAdmin && bulkTarget !== 'individual') {
-          const result = await distributePoints(numAmount, bulkTarget as UserLevel, 'SPECIAL');
+          const result = await bulkTransfer(numAmount, bulkTarget as UserLevel);
           if (result.success) {
-            setMessage({ text: `${result.count}명에게 ${numAmount.toLocaleString()}P 송금 완료!`, type: 'success' });
+            setMessage({ text: `${result.count}명에게 ${numAmount.toLocaleString()}P 송금 완료! (총 ${(numAmount * result.count).toLocaleString()}P 차감)`, type: 'success' });
             setAmount('');
             setBulkTarget('individual');
           } else {
-            setMessage({ text: '송금 실패', type: 'error' });
+            setMessage({ text: result.message, type: 'error' });
           }
         } else {
           // 개인 송금

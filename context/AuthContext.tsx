@@ -18,6 +18,7 @@ interface AuthContextType {
   getUserLevel: (targetUser: User) => UserLevel;
   distributePoints: (amount: number, targetLevel: 'ALL' | UserLevel, bonusType: BonusType) => Promise<{ success: boolean; count: number }>;
   distributePointsToSelected: (amount: number, selectedIds: string[], bonusType: BonusType) => Promise<{ success: boolean; count: number }>;
+  bulkTransfer: (amount: number, targetLevel: UserLevel) => Promise<{ success: boolean; count: number; message: string }>;
   toggleDirector: (userId: string) => Promise<void>;
   approveDeposit: (transactionId: string) => Promise<void>;
   rejectDeposit: (transactionId: string) => Promise<void>;
@@ -376,6 +377,69 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return { success: true, count };
   };
 
+  // 관리자 전용: 등급별 일괄 송금 (관리자 잔액 차감)
+  const bulkTransfer = async (amount: number, targetLevel: UserLevel) => {
+    if (!supabase || !user) return { success: false, count: 0, message: '로그인 필요' };
+    if (user.username !== 'admin') return { success: false, count: 0, message: '관리자만 가능' };
+    
+    const db = supabase;
+    
+    // 대상 회원 필터링
+    const targetUsers = users.filter(u => {
+      if (u.username === 'admin') return false;
+      return getUserLevel(u) === targetLevel;
+    });
+    
+    if (targetUsers.length === 0) {
+      return { success: false, count: 0, message: '대상 회원이 없습니다' };
+    }
+    
+    const totalAmount = amount * targetUsers.length;
+    
+    // 관리자 잔액 확인
+    if (user.balance < totalAmount) {
+      return { success: false, count: 0, message: `잔액 부족 (필요: ${totalAmount.toLocaleString()}P)` };
+    }
+    
+    // 1. 관리자 잔액 차감
+    const { error: adminErr } = await db.from('users').update({ balance: user.balance - totalAmount }).eq('id', user.id);
+    if (adminErr) {
+      return { success: false, count: 0, message: '관리자 잔액 차감 실패' };
+    }
+    
+    // 2. 각 회원에게 송금 및 거래내역 기록
+    let count = 0;
+    const updates = targetUsers.map(async (u) => {
+      count++;
+      // 회원 잔액 증가
+      await db.from('users').update({ balance: u.balance + amount }).eq('id', u.id);
+      
+      // 회원 거래내역 (받음)
+      await db.from('transactions').insert({
+        type: 'TRANSFER_IN',
+        status: 'COMPLETED',
+        amount,
+        description: `관리자 일괄 송금`,
+        related_user_id: u.id,
+        related_user_name: 'admin'
+      });
+    });
+    
+    await Promise.all(updates);
+    
+    // 3. 관리자 거래내역 (보냄)
+    await db.from('transactions').insert({
+      type: 'TRANSFER_OUT',
+      status: 'COMPLETED',
+      amount: totalAmount,
+      description: `${targetLevel} 등급 ${count}명에게 일괄 송금`,
+      related_user_id: user.id,
+      related_user_name: `${targetLevel} (${count}명)`
+    });
+    
+    return { success: true, count, message: '송금 완료' };
+  };
+
   const toggleDirector = async (userId: string) => {
     if (!supabase) return;
     const u = users.find(u => u.id === userId);
@@ -435,7 +499,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     <AuthContext.Provider value={{ 
       user, users, login, logout, register, deposit, withdraw, transfer, 
       changePassword, updateUserProfile, deleteUser, transactions,
-      getUserLevel, distributePoints, distributePointsToSelected, toggleDirector,
+      getUserLevel, distributePoints, distributePointsToSelected, bulkTransfer, toggleDirector,
       approveDeposit, rejectDeposit, restoreSystemData,
       shopUrl, saveShopUrl, deleteShopUrl
     }}>
