@@ -1,9 +1,9 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { User, Language } from '../types';
 
 // API Key가 없으면 null로 설정 (AI 기능 비활성화)
 const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || null;
-const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
+const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
 
 const getLanguageName = (lang: Language): string => {
   switch(lang) {
@@ -22,7 +22,7 @@ export const analyzeNetwork = async (
   language: Language
 ): Promise<string> => {
   // AI가 설정되지 않은 경우 기본 메시지 반환
-  if (!ai) {
+  if (!genAI) {
     return "AI 분석 기능을 사용하려면 Gemini API Key가 필요합니다.";
   }
   
@@ -45,12 +45,12 @@ export const analyzeNetwork = async (
       4. Format with clean bullet points.
     `;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-    });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
 
-    return response.text || "AI analysis unavailable.";
+    return text || "AI analysis unavailable.";
   } catch (error) {
     console.error("Gemini analysis failed:", error);
     return "AI service is currently unavailable. Please try again later.";
