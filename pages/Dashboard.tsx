@@ -5,14 +5,8 @@ import { Users, Wallet, ArrowUpRight, ArrowDownLeft, UserPlus, Award, ShoppingBa
 import { UserLevel } from '../types';
 
 const Dashboard: React.FC = () => {
-  const { user, users, transactions, getUserLevel } = useAuth();
+  const { user, users, transactions, getUserLevel, shopUrl } = useAuth();
   const { t } = useLanguage();
-  const [shopUrl, setShopUrl] = useState<string>('');
-
-  useEffect(() => {
-    const savedUrl = localStorage.getItem('shopUrl') || '';
-    setShopUrl(savedUrl);
-  }, []);
 
   const handleShopClick = () => {
     if (shopUrl) {

@@ -22,6 +22,9 @@ interface AuthContextType {
   approveDeposit: (transactionId: string) => Promise<void>;
   rejectDeposit: (transactionId: string) => Promise<void>;
   restoreSystemData: (users: User[], transactions: Transaction[]) => void;
+  shopUrl: string;
+  saveShopUrl: (url: string) => Promise<void>;
+  deleteShopUrl: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -57,6 +60,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [shopUrl, setShopUrl] = useState<string>('');
 
   // 1. 초기 데이터 로드 및 구독 (Realtime)
   const fetchData = async () => {
@@ -72,6 +76,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const { data: txData } = await supabase.from('transactions').select('*').order('created_at', { ascending: false });
     if (txData) {
       setTransactions(txData.map(mapTxFromDB));
+    }
+
+    // Settings Fetch (shopUrl)
+    const { data: settingsData } = await supabase.from('settings').select('*').eq('key', 'shop_url').single();
+    if (settingsData) {
+      setShopUrl(settingsData.value || '');
     }
   };
 
@@ -399,12 +409,35 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
      console.log("Restore not available in Supabase mode via client.");
   };
 
+  // 쇼핑몰 URL 저장 (Supabase settings 테이블)
+  const saveShopUrl = async (url: string) => {
+    if (!supabase) return;
+    
+    // upsert: 있으면 업데이트, 없으면 삽입
+    const { error } = await supabase
+      .from('settings')
+      .upsert({ key: 'shop_url', value: url }, { onConflict: 'key' });
+    
+    if (!error) {
+      setShopUrl(url);
+    }
+  };
+
+  // 쇼핑몰 URL 삭제
+  const deleteShopUrl = async () => {
+    if (!supabase) return;
+    
+    await supabase.from('settings').delete().eq('key', 'shop_url');
+    setShopUrl('');
+  };
+
   return (
     <AuthContext.Provider value={{ 
       user, users, login, logout, register, deposit, withdraw, transfer, 
       changePassword, updateUserProfile, deleteUser, transactions,
       getUserLevel, distributePoints, distributePointsToSelected, toggleDirector,
-      approveDeposit, rejectDeposit, restoreSystemData
+      approveDeposit, rejectDeposit, restoreSystemData,
+      shopUrl, saveShopUrl, deleteShopUrl
     }}>
       {children}
     </AuthContext.Provider>

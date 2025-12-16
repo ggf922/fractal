@@ -5,7 +5,7 @@ import { Shield, Search, Edit2, Save, X, Users, Send, CheckCircle, Award, CheckS
 import { UserLevel, BonusType, Country } from '../types';
 
 const Admin: React.FC = () => {
-  const { users, transactions, updateUserProfile, deleteUser, getUserLevel, distributePoints, distributePointsToSelected, toggleDirector, approveDeposit, rejectDeposit, restoreSystemData } = useAuth();
+  const { users, transactions, updateUserProfile, deleteUser, getUserLevel, distributePoints, distributePointsToSelected, toggleDirector, approveDeposit, rejectDeposit, restoreSystemData, shopUrl, saveShopUrl, deleteShopUrl } = useAuth();
   const { t } = useLanguage();
   
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -15,25 +15,20 @@ const Admin: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // 쇼핑몰 URL 상태
-  const [shopUrl, setShopUrl] = useState<string>('');
+  // 쇼핑몰 URL 입력 상태
   const [shopUrlInput, setShopUrlInput] = useState<string>('');
 
   useEffect(() => {
-    const savedUrl = localStorage.getItem('shopUrl') || '';
-    setShopUrl(savedUrl);
-    setShopUrlInput(savedUrl);
-  }, []);
+    setShopUrlInput(shopUrl);
+  }, [shopUrl]);
 
-  const handleSaveShopUrl = () => {
-    localStorage.setItem('shopUrl', shopUrlInput);
-    setShopUrl(shopUrlInput);
+  const handleSaveShopUrl = async () => {
+    await saveShopUrl(shopUrlInput);
     setMessage({ text: '쇼핑몰 URL이 저장되었습니다.', type: 'success' });
   };
 
-  const handleDeleteShopUrl = () => {
-    localStorage.removeItem('shopUrl');
-    setShopUrl('');
+  const handleDeleteShopUrl = async () => {
+    await deleteShopUrl();
     setShopUrlInput('');
     setMessage({ text: '쇼핑몰 URL이 삭제되었습니다.', type: 'success' });
   };
