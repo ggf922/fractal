@@ -385,13 +385,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const db = supabase;
     
     // 관리자 최신 잔액 가져오기
-    const { data: adminData } = await db.from('users').select('*').eq('id', user.id).single();
-    if (!adminData) return { success: false, count: 0, message: '관리자 정보 조회 실패' };
+    const { data: adminData, error: adminFetchErr } = await db.from('users').select('*').eq('username', 'admin').single();
+    if (adminFetchErr || !adminData) {
+      console.error('Admin fetch error:', adminFetchErr);
+      return { success: false, count: 0, message: '관리자 정보 조회 실패' };
+    }
+    const adminId = adminData.id;
     const adminBalance = adminData.balance;
     
     // 대상 회원 필터링 (최신 데이터)
-    const { data: allUsersData } = await db.from('users').select('*');
-    if (!allUsersData) return { success: false, count: 0, message: '회원 정보 조회 실패' };
+    const { data: allUsersData, error: usersFetchErr } = await db.from('users').select('*');
+    if (usersFetchErr || !allUsersData) {
+      console.error('Users fetch error:', usersFetchErr);
+      return { success: false, count: 0, message: '회원 정보 조회 실패' };
+    }
     
     const allUsers = allUsersData.map(mapUserFromDB);
     const targetUsers = allUsers.filter(u => {
@@ -417,19 +424,40 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return { success: false, count: 0, message: `잔액 부족 (필요: ${totalAmount.toLocaleString()}P, 보유: ${adminBalance.toLocaleString()}P)` };
     }
     
+    const newAdminBalance = adminBalance - totalAmount;
+    
     // 1. 관리자 잔액 차감
-    const { error: adminErr } = await db.from('users').update({ balance: adminBalance - totalAmount }).eq('id', user.id);
-    if (adminErr) {
-      console.error('Admin balance update error:', adminErr);
-      return { success: false, count: 0, message: '관리자 잔액 차감 실패' };
+    const { error: adminUpdateErr } = await db
+      .from('users')
+      .update({ balance: newAdminBalance })
+      .eq('username', 'admin');
+    
+    if (adminUpdateErr) {
+      console.error('Admin balance update error:', adminUpdateErr);
+      return { success: false, count: 0, message: '관리자 잔액 차감 실패: ' + adminUpdateErr.message };
     }
     
     // 2. 각 회원에게 송금 및 거래내역 기록
     let count = 0;
     for (const u of targetUsers) {
-      count++;
+      // 회원 현재 잔액 조회
+      const { data: memberData } = await db.from('users').select('balance').eq('id', u.id).single();
+      if (!memberData) continue;
+      
+      const newBalance = memberData.balance + amount;
+      
       // 회원 잔액 증가
-      await db.from('users').update({ balance: u.balance + amount }).eq('id', u.id);
+      const { error: memberUpdateErr } = await db
+        .from('users')
+        .update({ balance: newBalance })
+        .eq('id', u.id);
+      
+      if (memberUpdateErr) {
+        console.error(`Member ${u.username} update error:`, memberUpdateErr);
+        continue;
+      }
+      
+      count++;
       
       // 회원 거래내역 (받음)
       await db.from('transactions').insert({
@@ -448,7 +476,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       status: 'COMPLETED',
       amount: totalAmount,
       description: `${targetLevel} 등급 ${count}명에게 일괄 송금`,
-      related_user_id: user.id,
+      related_user_id: adminId,
       related_user_name: `${targetLevel} (${count}명)`
     });
     
