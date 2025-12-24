@@ -70,7 +70,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // Users Fetch
     const { data: usersData } = await supabase.from('users').select('*').order('created_at', { ascending: true });
     if (usersData) {
-      setUsers(usersData.map(mapUserFromDB));
+      const mappedUsers = usersData.map(mapUserFromDB);
+      setUsers(mappedUsers);
+      
+      // 현재 로그인한 사용자 정보도 최신으로 업데이트
+      const storedUserId = localStorage.getItem('currentUserId');
+      if (storedUserId) {
+        const currentUserData = mappedUsers.find(u => u.id === storedUserId);
+        if (currentUserData) {
+          setUser(currentUserData);
+        }
+      }
     }
 
     // Transactions Fetch
@@ -108,10 +118,32 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const txSub = db.channel('public:transactions')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, () => fetchData())
         .subscribe();
+      
+      // Settings 테이블 실시간 구독 추가
+      const settingsSub = db.channel('public:settings')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, () => fetchData())
+        .subscribe();
+
+      // 화면 포커스 시 데이터 새로고침 (PC-모바일 전환 시)
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') {
+          fetchData();
+        }
+      };
+      
+      const handleFocus = () => {
+        fetchData();
+      };
+
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      window.addEventListener('focus', handleFocus);
 
       return () => {
         db.removeChannel(usersSub);
         db.removeChannel(txSub);
+        db.removeChannel(settingsSub);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+        window.removeEventListener('focus', handleFocus);
       };
     }
   }, []);

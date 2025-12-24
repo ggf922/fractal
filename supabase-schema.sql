@@ -71,3 +71,4 @@ CREATE POLICY "Allow all users to update transactions" ON transactions
 SELECT 'FRACTAL Database schema created successfully!' AS message;
 
 
+
